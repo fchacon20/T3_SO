@@ -3,6 +3,7 @@
 #include <fcntl.h>
 #include <unistd.h>
 #include <stdio.h>
+#include <wait.h>
 
 #define DEF_BUFSIZE 1024
 
@@ -75,11 +76,6 @@ char *read_line(){
     }
 }
 
-int execute(char **args){
-    //exec (args[0],[args[1],args[2],...,args[n]]);
-
-    return 0;
-}
 
 void loop(void){
     char *line;
@@ -91,22 +87,44 @@ void loop(void){
     do {
       	write(STDOUT_FILENO,"> ",2);
         line = read_line();
-	line_size = strlen(line);
-	write(STDOUT_FILENO, line, line_size);
-	write(STDOUT_FILENO, "\n", 1);
+        line_size = strlen(line);
+        write(STDOUT_FILENO, line, line_size);
+        write(STDOUT_FILENO, "\n", 1);
         args = split_line(line, n_args);
-	
-        //status = execute(args);
-	free(line);
+        status = execute(args);
+	    free(line);
 	/*int i;
 	for(i=0; i<=*n_args; i++){
 	    free(args[i]);
 	}
 	//free(args);*/
-        break;
+        //break;
     } while (status);
 }
 
+int execute(char **args){
+    pid_t pid, wpid;
+    int status;
+
+    pid = fork();
+    if (pid == 0) {
+        // Child process
+        if (execvp(args[0], args) == -1) {
+            perror("lsh");
+        }
+        exit(EXIT_FAILURE);
+    } else if (pid < 0) {
+        // Error forking
+        perror("lsh");
+    } else {
+        // Parent process
+        do {
+            wpid = waitpid(pid, &status, WUNTRACED);
+        } while (!WIFEXITED(status) && !WIFSIGNALED(status));
+    }
+
+    return 1;
+}
 
 int main() {
 
@@ -121,43 +139,3 @@ int main() {
 
 }
 
-/*
-int main(void)
-{
-    int filedesc = open("testfile.txt", O_WRONLY | O_APPEND | O_CREAT);
-
-    printf("%d", filedesc);
-    if (filedesc < 0) {
-        return -1;
-    }
-
-    if (write(filedesc, "This will be output to testfile.txt\n", 36) != 36) {
-        write(2, "There was an error writing to testfile.txt\n", 43);
-        return -1;
-    }
-    close(filedesc);
-    return 0;
-}
-
-int main(int argc, char *argv[]){
-
-    // Variables
-    int fd1,fd2;
-    char buffer[1024];
-    int numbytes;
-
-
-    // Abrimos los dos archivos
-    fd1 = open("instructions", O_RDONLY);
-    fd2 = open("testfile.txt", O_WRONLY|O_CREAT|O_TRUNC, 0700);
-
-    // Bucle de lectura/escritura
-    while ((numbytes = read(fd1, &buffer, sizeof(char))) > 0){
-        write(fd2, &buffer, numbytes);
-    }
-
-    // Cierre de archivos 
-    close(fd1);
-    close(fd2);
-}
-*/
