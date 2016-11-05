@@ -1,6 +1,5 @@
 #include <stdlib.h>
 #include <string.h>
-#include <fcntl.h>
 #include <unistd.h>
 #include <stdio.h>
 #include <wait.h>
@@ -31,6 +30,16 @@ char **split_line(char *phrase, size_t *n_tokens){
 	const char delimiter = ' ';
 
 	return split(phrase, length, delimiter, n_tokens);
+}
+
+char *get_cwd_path(){
+    long size;
+    char *buf,*ptr;
+
+    size = pathconf(".", _PC_PATH_MAX);
+    if ((buf = (char *)malloc((size_t)size)) != NULL){
+	    ptr = getcwd(buf, (size_t)size);
+    }
 }
 
 char *read_char(){
@@ -65,27 +74,12 @@ char *read_line(){
     }
 }
 
+int execute(char **args) {
 
-void loop(void){
-    char *line;
-    char **args;
-    int status;
-    int i;
-    size_t line_size,valor = 0;
-    size_t *n_args = &valor;
+    if (strcmp(args[0], "exit") == 0) {
+        exit(1);
+    }
 
-    do {
-        write(STDOUT_FILENO,"> ",2);
-        line = read_line();
-        line_size = strlen(line);
-        args = split_line(line, n_args);
-        status = execute(args);
-	    free(line);
-	    free(args);
-    } while (status);
-}
-
-int execute(char **args){
     pid_t pid, wpid;
     int status;
     int i;
@@ -103,15 +97,15 @@ int execute(char **args){
         perror("lsh");
     } else {
         for (i = 0; i < 1024; ++i) {
-            if(args[i]== NULL){
+            if (args[i] == NULL) {
                 i--;
                 break;
             }
         }
         // Parent process
-        if (!strcmp(args[i],"&")) {
+        if (!strcmp(args[i], "&")) {
             usleep(100000);
-        } else{
+        } else {
             do {
                 wpid = waitpid(pid, &status, WUNTRACED);
             } while (!WIFEXITED(status) && !WIFSIGNALED(status));
@@ -121,14 +115,31 @@ int execute(char **args){
     return 1;
 }
 
+void loop(void){
+    char *line,*path;
+    char **args;
+    int status;
+
+    size_t path_size,line_size,valor = 0;
+    size_t *n_args = &valor;
+
+    do {
+      	path = get_cwd_path();
+        strcat(path, "> ");
+        path_size = strlen(path);
+        write(STDOUT_FILENO, path, path_size);
+        line = read_line();
+        line_size = strlen(line);
+        args = split_line(line, n_args);
+        status = execute(args);
+    	free(line);
+    } while (status);
+}
+
+
 int main() {
 
-    // Load config files, if any.
-
-    // Run command loop.
     loop();
-
-    // Perform any shutdown/cleanup.
 
     return 0;
 
