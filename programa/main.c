@@ -35,6 +35,16 @@ char **split_line(char *phrase, size_t *n_tokens){
 	return split(phrase, length, delimiter, n_tokens);
 }
 
+char *get_cwd_path(){
+    long size;
+    char *buf,*ptr;
+
+    size = pathconf(".", _PC_PATH_MAX);
+    if ((buf = (char *)malloc((size_t)size)) != NULL){
+	ptr = getcwd(buf, (size_t)size);
+    }
+}
+
 char *read_char(){
     char *c;
     c = malloc(sizeof(char));
@@ -47,11 +57,6 @@ char *read_line(){
     int position = 0;
     char *c;
     char *buffer = malloc(sizeof(char) * bufsize);
-
-    /*if (!buffer){
-        write(STDERR_FILENO, "custom shell allocation error\n", 31);
-	exit(EXIT_FAILURE);
-    }*/
 
     while (1){
 	c = read_char();
@@ -68,41 +73,39 @@ char *read_line(){
 	if (position >= bufsize){
 	    bufsize += 1024;
 	    buffer = realloc(buffer, bufsize);
-	    /*if (!buffer){
-		write(STDERR_FILENO, "custom shell allocation error\n", 31);
-		exit(EXIT_FAILURE);
-	    }*/
 	}
     }
 }
 
 
 void loop(void){
-    char *line;
+    char *line,*path;
     char **args;
     int status;
-    size_t line_size,valor = 0;
+    size_t path_size,line_size,valor = 0;
     size_t *n_args = &valor;
 
     do {
-      	write(STDOUT_FILENO,"> ",2);
+      	path = get_cwd_path();
+	strcat(path, "> ");
+	path_size = strlen(path);
+	write(STDOUT_FILENO, path, path_size);
         line = read_line();
         line_size = strlen(line);
-        write(STDOUT_FILENO, line, line_size);
-        write(STDOUT_FILENO, "\n", 1);
+        //write(STDOUT_FILENO, line, line_size);
+        //write(STDOUT_FILENO, "\n", 1);
         args = split_line(line, n_args);
         status = execute(args);
-	    free(line);
-	/*int i;
-	for(i=0; i<=*n_args; i++){
-	    free(args[i]);
-	}
-	//free(args);*/
-        //break;
+	free(line);
     } while (status);
 }
 
 int execute(char **args){
+
+    if (strcmp(args[0], "exit") == 0){
+	exit(1);
+    }
+
     pid_t pid, wpid;
     int status;
 
