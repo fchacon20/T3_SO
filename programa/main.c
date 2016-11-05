@@ -5,8 +5,6 @@
 #include <stdio.h>
 #include <wait.h>
 
-#define DEF_BUFSIZE 1024
-
 char **split(char *phrase, const size_t length, const char delimiter, size_t *n_tokens){
     int words = 1;
 
@@ -43,36 +41,27 @@ char *read_char(){
 }
 
 char *read_line(){
-    int bufsize = 1024;
+    size_t bufsize = 1024;
     int position = 0;
     char *c;
     char *buffer = malloc(sizeof(char) * bufsize);
 
-    /*if (!buffer){
-        write(STDERR_FILENO, "custom shell allocation error\n", 31);
-	exit(EXIT_FAILURE);
-    }*/
-
     while (1){
-	c = read_char();
+        c = read_char();
 
-	if (*c == EOF || *c == '\n'){
-	    buffer[position] = '\0';
-	    return buffer;
-	}
-	else{
-	    buffer[position] = *c;
-	}
-	position++;
+        if (*c == EOF || *c == '\n'){
+            buffer[position] = '\0';
+            return buffer;
+        }
+        else{
+            buffer[position] = *c;
+        }
+        position++;
 
-	if (position >= bufsize){
-	    bufsize += 1024;
-	    buffer = realloc(buffer, bufsize);
-	    /*if (!buffer){
-		write(STDERR_FILENO, "custom shell allocation error\n", 31);
-		exit(EXIT_FAILURE);
-	    }*/
-	}
+        if (position >= bufsize){
+            bufsize += 1024;
+            buffer = realloc(buffer, bufsize);
+        }
     }
 }
 
@@ -81,33 +70,29 @@ void loop(void){
     char *line;
     char **args;
     int status;
+    int i;
     size_t line_size,valor = 0;
     size_t *n_args = &valor;
 
     do {
-      	write(STDOUT_FILENO,"> ",2);
+        write(STDOUT_FILENO,"> ",2);
         line = read_line();
         line_size = strlen(line);
-        write(STDOUT_FILENO, line, line_size);
-        write(STDOUT_FILENO, "\n", 1);
         args = split_line(line, n_args);
         status = execute(args);
 	    free(line);
-	/*int i;
-	for(i=0; i<=*n_args; i++){
-	    free(args[i]);
-	}
-	//free(args);*/
-        //break;
+	    free(args);
     } while (status);
 }
 
 int execute(char **args){
     pid_t pid, wpid;
     int status;
+    int i;
 
     pid = fork();
     if (pid == 0) {
+
         // Child process
         if (execvp(args[0], args) == -1) {
             perror("lsh");
@@ -117,10 +102,20 @@ int execute(char **args){
         // Error forking
         perror("lsh");
     } else {
+        for (i = 0; i < 1024; ++i) {
+            if(args[i]== NULL){
+                i--;
+                break;
+            }
+        }
         // Parent process
-        do {
-            wpid = waitpid(pid, &status, WUNTRACED);
-        } while (!WIFEXITED(status) && !WIFSIGNALED(status));
+        if (!strcmp(args[i],"&")) {
+            usleep(100000);
+        } else{
+            do {
+                wpid = waitpid(pid, &status, WUNTRACED);
+            } while (!WIFEXITED(status) && !WIFSIGNALED(status));
+        }
     }
 
     return 1;
